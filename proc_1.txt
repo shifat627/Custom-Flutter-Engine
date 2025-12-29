@@ -1,0 +1,15 @@
+import deport tool
+git clone https://github.com/flutter/engine.git
+export PATH="/home/shifat/MyWorkspace/flutter_rev/depot_tools:$PATH"
+cd engine/
+git config --global user.email "reflutter@example.com" && git config --global user.name "reflutter" && git fetch origin f6344b75dcf861d8bf1f1322780b8811f982e31a
+git reset --hard FETCH_HEAD
+echo 'reflutter' > REFLUTTER && git add . && git commit -am "reflutter"
+cd ..
+mkdir myflengine
+cd myflengine/
+echo "solutions = [{\"managed\": False,\"name\": \"src/flutter\",\"url\": \"/home/shifat/MyWorkspace/flutter_rev/engine\",\"custom_deps\": {},\"deps_file\": \"DEPS\",\"safesync_url\": \"\",},]" > .gclient
+gclient sync
+<Modify Code>
+src/flutter/tools/gn --no-goma --android --android-cpu=x64 --runtime-mode=release
+ninja -C src/out/android_release_x64/

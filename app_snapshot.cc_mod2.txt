@@ -1,0 +1,2 @@
+auto& offset = instructions_table_.rodata()->entries()[instructions_table_.rodata()->first_entry_with_code + instructions_index_ - 1].pc_offset;
+code->untag()->monomorphic_unchecked_entry_point_ = offset;
