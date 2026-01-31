@@ -1,0 +1,245 @@
+In engine/src/flutter/third_party/dart/runtime/vm/dart.cc , Replace
+
+============================
+if (FLAG_print_class_table) {
+IG->class_table()->Print();
+}
+
+===
+TO
+====
+if (true) {
+    IG->class_table()->Print();
+}
+    
+    
+--------------------------------------------------------------
+in ,engine/src/flutter/third_party/dart/runtime/vm/dart_api_impl.cc , Repleace
+
+==================
+if (FLAG_print_class_table) {
+HANDLESCOPE(Thread::Current());
+I->group()->class_table()->Print();
+ }
+
+====
+TO
+====
+
+  if (true) {
+    HANDLESCOPE(Thread::Current());
+    I->group()->class_table()->Print();
+  }
+  
+---------------------------------------------------------------
+In flutter/engine/src/flutter/third_party/dart/runtime/vm/class_table.cc , 
+
+
+Add header
+==============
+//Added By me
+#include "Frida/fridawriter.h"
+
+
+
+==================
+void ClassTable::Print() {
+  Class& cls = Class::Handle();
+  //String& name = String::Handle();
+
+  for (intptr_t i = 1; i < classes_.num_cids(); i++) {
+    if (!HasValidClassAt(i)) {
+      continue;
+    }
+    cls = At(i);
+    if (cls.ptr() != nullptr) {
+      
+      FridaWriter::Create("/data/data/com.basicbanklimited.magpie/constants.h","/data/data/com.basicbanklimited.magpie/class_table_cid.js",&cls,GetUnboxedFieldsMapAt(i).Value());
+    }
+  }
+}
+
+
+
+-----------------------------------------------------------
+
+Create folder named "Frida" in  engine/src/flutter/third_party/dart/runtime/vm/, Then Create File named "fridawriter.h" , Content is below
+
+
+//Added by me
+#include <fstream>
+#include <iostream>
+#include "../compiler/runtime_offsets_extracted.h"
+#include "../object.h"
+#include "../raw_object.h"
+#include "../class_table.h"
+//#include "../field.h"
+using namespace dart;
+
+class FridaWriter {
+ public:
+  static void Create(const char* filename,
+                     const char* cid_filename,
+                     Class* dartCls,uint64_t cls_fbitmap) {
+    std::ofstream of1(filename);
+    std::ofstream of(cid_filename, std::ios_base::app);
+
+    //of1 << "const ClassIdTagPos = " << dart::UntaggedObject::kClassIdTagPos << ";\n";
+    of1 << "const ClassIdTagPos = " << 12 << ";\n";
+    // of1 << std::format("const ClassIdTagMask = {:#x};\n",
+    //                   (1 << dart::UntaggedObject::kClassIdTagSize) - 1);
+
+    of1 << "const ClassIdTagMask = "
+        << (1 << dart::UntaggedObject::kClassIdTagSize) - 1 << ";\n";
+
+
+    of1<<"const CompressedWordSize = " <<compiler::target::kCompressedWordSize<<";\n";
+    of1<<"const KWordSize = " <<kWordSize<<";\n";
+    
+    of1<<"const HeapBaseOffset = " <<Thread_heap_base_offset<<";\n";
+
+
+    of1 << "const NumPredefinedCids = " << dart::kNumPredefinedCids << ";\n";
+    of1 << "const CidObject = " << dart::kInstanceCid << ";\n";
+    of1 << "const CidNull = " << dart::kNullCid << ";\n";
+    of1 << "const CidSmi = " << dart::kSmiCid << ";\n";
+    of1 << "const CidMint = " << dart::kMintCid << ";\n";
+    of1 << "const CidDouble = " << dart::kDoubleCid << ";\n";
+    of1 << "const CidBool = " << dart::kBoolCid << ";\n";
+    of1 << "const CidString = " << dart::kOneByteStringCid << ";\n";
+    of1 << "const CidTwoByteString = " << dart::kTwoByteStringCid << ";\n";
+    of1 << "const CidArray = " << dart::kArrayCid << ";\n";
+    of1 << "const CidGrowableArray = " << dart::kGrowableObjectArrayCid
+        << ";\n";
+    of1 << "const CidSet = " << dart::kSetCid << ";\n";
+    of1 << "const CidMap = " << dart::kMapCid << ";\n";
+    of1 << "const CidClosure = " << dart::kClosureCid << ";\n";
+    of1 << "const CidUint8Array = " << dart::kTypedDataUint8ArrayCid << ";\n";
+    of1 << "const CidInt8Array = " << dart::kTypedDataInt8ArrayCid << ";\n";
+    of1 << "const CidUint16Array = " << dart::kTypedDataUint16ArrayCid << ";\n";
+    of1 << "const CidInt16Array = " << dart::kTypedDataInt16ArrayCid << ";\n";
+    of1 << "const CidUint32Array = " << dart::kTypedDataUint32ArrayCid << ";\n";
+    of1 << "const CidInt32Array = " << dart::kTypedDataInt32ArrayCid << ";\n";
+    of1 << "const CidUint64Array = " << dart::kTypedDataUint64ArrayCid << ";\n";
+    of1 << "const CidInt64Array = " << dart::kTypedDataInt64ArrayCid << ";\n";
+    of1.close();
+    //of << "const Classes = [\n";
+
+    if (dartCls->id() < dart::kNumPredefinedCids) {
+      switch (dartCls->id()) {
+        case dart::kBoolCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"bool\",";
+
+          of << "valOffset:" << AOT_Instance_InstanceSize << "},\n";
+          break;
+        case dart::kMintCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"int\",";
+          of << "valOffset:" << AOT_Mint_value_offset << "},\n";
+          break;
+        case dart::kDoubleCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"double\",";
+          of << "valOffset:" << AOT_Double_value_offset << "},\n";
+          break;
+        case dart::kOneByteStringCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"String\",";
+          of << "lenOffset:" << AOT_String_length_offset << ",";
+          of << "dataOffset:" << AOT_OneByteString_data_offset << "},\n";
+          break;
+        case dart::kTwoByteStringCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"TwoByteString\",";
+          of << "lenOffset:" << AOT_String_length_offset << ",";
+          of << "dataOffset:" << AOT_TwoByteString_data_offset << "},\n";
+          break;
+        case dart::kArrayCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"List\",";
+          //dart::Array::kBytesPerElement is same as a compressed pointer size
+          of << "lenOffset:" << AOT_Array_length_offset << ",";
+          of << "dataOffset:" << AOT_Array_data_offset << ",";
+          of << "typeOffset:" << AOT_Array_type_arguments_offset << "},\n";
+          break;
+        case dart::kGrowableObjectArrayCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"GrowableList\",";
+          of << "lenOffset:" << AOT_GrowableObjectArray_length_offset << ",";
+          of << "dataOffset:" << AOT_GrowableObjectArray_data_offset << ",";
+          of << "typeOffset:" << AOT_GrowableObjectArray_type_arguments_offset
+             << "},\n";
+          break;
+        case dart::kSetCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"Set\",";
+          of << "usedOffset:" << AOT_LinkedHashBase_used_data_offset << ",";
+          of << "delOffset:" << AOT_LinkedHashBase_deleted_keys_offset << ",";
+          of << "dataOffset:" << AOT_LinkedHashBase_data_offset << ",";
+          of << "typeOffset:" << AOT_LinkedHashBase_type_arguments_offset
+             << "},\n";
+          break;
+        case dart::kMapCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"Map\",";
+          of << "usedOffset:" << AOT_LinkedHashBase_used_data_offset << ",";
+          of << "delOffset:" << AOT_LinkedHashBase_deleted_keys_offset << ",";
+          of << "dataOffset:" << AOT_LinkedHashBase_data_offset << ",";
+          of << "typeOffset:" << AOT_LinkedHashBase_type_arguments_offset
+             << "},\n";
+          break;
+        case dart::kClosureCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"Closure\",";
+          of << "fnOffset:" << AOT_Closure_function_offset << ",";
+          of << "contextOffset:" << AOT_Closure_context_offset << ",";
+          of << "epOffset:" << AOT_Closure_entry_point_offset << "},\n";
+          break;
+        case dart::kTypedDataUint8ArrayCid:
+        case dart::kTypedDataUint16ArrayCid:
+        case dart::kTypedDataUint32ArrayCid:
+        case dart::kTypedDataUint64ArrayCid:
+        case dart::kTypedDataInt8ArrayCid:
+        case dart::kTypedDataInt16ArrayCid:
+        case dart::kTypedDataInt32ArrayCid:
+        case dart::kTypedDataInt64ArrayCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"" << dartCls->UserVisibleNameCString() << "\",";
+          of << "lenOffset:" << AOT_TypedDataBase_length_offset << ",";
+          // current version name is "AOT_TypedData_payload_offset" but old version name is "AOT_TypedData_data_offset"
+          // function from UntaggedTypedData is always same
+          of << "dataOffset:" << dart::UntaggedTypedData::payload_offset()
+             << "},\n";
+          break;
+        case dart::kInstanceCid:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"Object\",";
+          of << "size:" << AOT_Instance_InstanceSize << "},\n";
+          break;
+        default:
+          of << "{id:" << dartCls->id() << ",";
+          of << "name:\"" << dartCls->UserVisibleNameCString() << "\"},\n";
+          break;
+      }
+    } else {
+      const Class& super = Class::Handle(dartCls->SuperClass());
+      of << "{";
+      of << "id:" << dartCls->id() << ",";
+      of << "name: \"" << dartCls->UserVisibleNameCString() << "\",";
+      of << "fbitmap:" <<cls_fbitmap<< ",";
+
+      of << "sid:" << super.id() << ",";
+      of << "size:" << dartCls->host_next_field_offset() << ",";
+      of << "argOffset:"
+         << dartCls->host_type_arguments_field_offset();  // << ",";
+      of << "},\n";
+    }
+    //of << "];\n";
+
+    of.close();
+  }
+
+ 
+  
+};
