@@ -1,0 +1,143 @@
+//----------------------------
+
+
+void ObjectPool::DebugPrint() const {  // Here is Global Object Pool is Printed
+  //THR_Print("ObjectPool len:%" Pd " {\n", Length());
+  FILE* fp = fopen("/data/data/com.jb.ejanata/pp.txt", "a+");
+ 
+  char buffer[4096];
+  for (intptr_t i = 0; i < Length(); i++) {
+    intptr_t ObjectPool_index;  // Added By ME
+
+#if defined(DART_PRECOMPILED_RUNTIME)
+    intptr_t offset = ObjectPool::element_offset(i);
+
+#else
+    intptr_t offset = compiler::target::ObjectPool::element_offset(i);
+#endif
+#if defined(TARGET_ARCH_RISCV32) || defined(TARGET_ARCH_RISCV64)
+    //THR_Print("  %" Pd "(pp) ", offset);  // PP is untagged
+    ObjectPool_index = offset;  // Added By ME
+#elif defined(TARGET_ARCH_ARM64)
+    //THR_Print("  [pp, #%" Pd "] ", offset);  // PP is untagged
+    ObjectPool_index = offset;  // Added By ME
+#elif defined(TARGET_ARCH_ARM32)
+    //THR_Print("  [pp, #%" Pd "] ", offset - kHeapObjectTag);  // PP is tagged
+    ObjectPool_index = offset - kHeapObjectTag;  // Added By ME
+#else
+    ObjectPool_index = offset - kHeapObjectTag;  // Added By ME
+    //THR_Print("  [pp+0x%" Px "] ", offset - kHeapObjectTag);  // PP is tagged
+#endif
+
+    
+    memset(buffer, 0, sizeof(buffer));
+    snprintf(buffer, sizeof(buffer), "  [pp+%#lx] -> ", ObjectPool_index);
+    
+
+    fprintf(fp, "%s", buffer);
+
+    if (TypeAt(i) == EntryType::kTaggedObject) {
+      const Object& obj = Object::Handle(ObjectAt(i));
+      //THR_Print("%s (obj)\n", obj.ToCString());
+
+      memset(buffer, 0, sizeof(buffer));
+
+      snprintf(buffer, sizeof(buffer), "%s (obj)\n", obj.ToCString());
+      fprintf(fp, "%s\n", buffer);
+
+      //---------------------------------------------------------
+
+      if (obj.IsArray() || obj.IsGrowableObjectArray()) {
+        // It's a List - print detailed info
+        if (obj.IsArray()) {
+          const Array& array = Array::Cast(obj);
+          intptr_t length = array.Length();
+          //THR_Print("    -> Array/List: length=%" Pd "\n", length);
+
+          intptr_t elements_to_print = length;
+          for (intptr_t j = 0; j < elements_to_print; j++) {
+            Object& element = Object::Handle(array.At(j));
+            const char* elem_str = element.ToCString();
+
+            memset(buffer, 0, sizeof(buffer));
+            snprintf(buffer, sizeof(buffer), " [%" Pd "]: %s\n", j, elem_str);
+            fprintf(fp, "%s\n", buffer);
+          }
+
+        } else if (obj.IsGrowableObjectArray()) {
+          const GrowableObjectArray& growable = GrowableObjectArray::Cast(obj);
+          intptr_t length = growable.Length();
+          intptr_t capacity = growable.Capacity();
+          //THR_Print("    -> GrowableList: length=%" Pd ", capacity=%" Pd "\n", length, capacity);
+
+          // Get the backing array
+          memset(buffer, 0, sizeof(buffer));
+          snprintf(buffer, sizeof(buffer),
+                   "  GrowableList: length=%" Pd ", capacity=%" Pd "\n", length,
+                   capacity);
+          fprintf(fp, "%s\n", buffer);
+
+          const Array& data = Array::Handle(growable.data());
+          intptr_t elements_to_print = length;
+          for (intptr_t j = 0; j < elements_to_print; j++) {
+            Object& element = Object::Handle(data.At(j));
+            const char* elem_str = element.ToCString();
+            memset(buffer, 0, sizeof(buffer));
+            snprintf(buffer, sizeof(buffer), " [%" Pd "]: %s\n", j, elem_str);
+            fprintf(fp, "%s\n", buffer);
+          }
+
+        } else;
+        
+      }
+
+      //---------------------------------------------------------
+
+    } else if (TypeAt(i) == EntryType::kNativeFunction) {
+      uword pc = RawValueAt(i);
+      uintptr_t start = 0;
+      char* name = NativeSymbolResolver::LookupSymbolName(pc, &start); // use const if error
+      char* dso_name; // use const if error
+      uword dso_base;
+      if (name != nullptr) {
+        //THR_Print("%s (native function)\n", name);
+
+        memset(buffer, 0, sizeof(buffer));
+        snprintf(buffer, sizeof(buffer), "%s (native function)\n", name);
+        fprintf(fp, "%s", buffer);
+
+        NativeSymbolResolver::FreeSymbolName(name);
+      } else if (NativeSymbolResolver::LookupSharedObject(pc, &dso_base,
+                                                          &dso_name)) {
+        uword dso_offset = pc - dso_base;
+        //THR_Print("%s+0x%" Px " (native function)\n", dso_name, dso_offset);
+
+        memset(buffer, 0, sizeof(buffer));
+        snprintf(buffer, sizeof(buffer), "%s+%#lx (native function)\n",
+                 dso_name, dso_offset);
+        fprintf(fp, "%s", buffer);
+
+        NativeSymbolResolver::FreeSymbolName(dso_name);
+      } else {
+        //THR_Print("0x%" Px " (native function)\n", pc);
+
+        memset(buffer, 0, sizeof(buffer));
+        snprintf(buffer, sizeof(buffer), "%#lx (native function)\n", pc);
+        fprintf(fp, "%s", buffer);
+      }
+    } else {
+      //THR_Print("0x%" Px " (raw)\n", RawValueAt(i));
+      memset(buffer, 0, sizeof(buffer));
+      snprintf(buffer, sizeof(buffer), "%#lx (raw)\n", RawValueAt(i));
+      fprintf(fp, "%s", buffer);
+    }
+
+    //fprintf(fp, "\n");
+    fflush(fp);
+  }
+  //THR_Print("}\n");
+
+  fclose(fp);
+}
+
+//-----------------------------
